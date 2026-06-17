@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:pertemuan10_2306032/pages/product_page.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/product_model.dart';
 import 'login_page.dart';
@@ -14,9 +15,9 @@ class _HomePageState extends State<HomePage> {
   String username = '';
 
   // variable utama dari daftar product
-
+  List<ProductModel> allProducts = [];
   List<ProductModel> products = [];
-
+  int totalProduk = 0;
 
   @override
   void initState() {
@@ -25,52 +26,91 @@ class _HomePageState extends State<HomePage> {
     loadProducts();
   }
 
+  //load product
   Future<void> loadProducts() async {
     final prefs = await SharedPreferences.getInstance();
     List<String> productList = prefs.getStringList('products') ?? [];
     setState(() {
-      products = productList
-      .map((item) => ProductModel.fromJson(item))
-      .toList();
+      allProducts = productList.map((item) => ProductModel.fromJson(item)).toList();
+      totalProduk = allProducts.length;
+      products = allProducts
+          .reversed
+          .take(3)
+          .toList();
     });
   }
 
   Future<void> saveProducts() async {
     final prefs = await SharedPreferences.getInstance();
-    List<String> productList = products.map((item) => item.toJson()).toList();
+    List<String> productList = allProducts.map((item) => item.toJson()).toList();
     await prefs.setStringList('products', productList);
   }
 
   Future<void> addProduct(ProductModel product) async {
     setState(() {
-      products.add(product);
+      allProducts.add(product);
     });
     await saveProducts();
+    await loadProducts();
     if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("Produk berhasil ditambahkan")),
     );
   }
 
-  Future<void> updateProduct(int index, ProductModel product) async {
-    setState(() {
-      products[index] = product;
-    });
-    await saveProducts();
+  Future<void> updateProduct(ProductModel oldProduct, ProductModel newProduct) async {
+    int index = allProducts.indexOf(oldProduct);
+    if (index != -1) {
+      setState(() {
+        allProducts[index] = newProduct;
+      });
+      await saveProducts();
+      await loadProducts();
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Produk berhasil diperbarui")),
+      );
+    }
   }
 
-  Future<void> deleteProduct(int index) async {
-    setState(() {
-      products.removeAt(index);
-    });
-    await saveProducts();
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("Produk berhasil dihapus")),
-    );
+  Future<void> deleteProduct(ProductModel product) async {
+    // Show confirmation dialog before delete
+    bool confirm = await showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text("Hapus Produk"),
+        content: Text("Apakah Anda yakin ingin menghapus produk '${product.name}'?"),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () => Navigator.pop(context, true),
+            child: const Text("Hapus", style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    ) ?? false;
+
+    if (confirm) {
+      int index = allProducts.indexOf(product);
+      if (index != -1) {
+        setState(() {
+          allProducts.removeAt(index);
+        });
+        await saveProducts();
+        await loadProducts();
+        if (!mounted) return;
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Produk berhasil dihapus")),
+        );
+      }
+    }
   }
 
-  void showForm({ProductModel? product, int? index}) {
+  void showForm({ProductModel? product}) {
     TextEditingController nameController = TextEditingController(
       text: product?.name ?? "",
     );
@@ -84,28 +124,52 @@ class _HomePageState extends State<HomePage> {
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
         title: Text(product == null ? "Tambah Produk" : "Edit Produk"),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            TextField(
-              controller: nameController,
-              decoration: const InputDecoration(labelText: "Nama"),
-            ),
-            TextField(
-              controller: descriptionController,
-              decoration: const InputDecoration(labelText: "Deskripsi"),
-            ),
-            TextField(
-              controller: priceController,
-              decoration: const InputDecoration(labelText: "Harga"),
-              keyboardType: TextInputType.number,
-            ),
-          ],
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: nameController,
+                decoration: const InputDecoration(
+                  labelText: "Nama",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: descriptionController,
+                decoration: const InputDecoration(
+                  labelText: "Deskripsi",
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextField(
+                controller: priceController,
+                decoration: const InputDecoration(
+                  labelText: "Harga",
+                  border: OutlineInputBorder(),
+                ),
+                keyboardType: TextInputType.number,
+              ),
+            ],
+          ),
         ),
         actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+          ),
           ElevatedButton(
             onPressed: () {
+              if (nameController.text.trim().isEmpty) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text("Nama produk tidak boleh kosong")),
+                );
+                return;
+              }
               final newProduct = ProductModel(
                 name: nameController.text,
                 description: descriptionController.text,
@@ -114,7 +178,7 @@ class _HomePageState extends State<HomePage> {
               if (product == null) {
                 addProduct(newProduct);
               } else {
-                updateProduct(index!, newProduct);
+                updateProduct(product, newProduct);
               }
               Navigator.pop(context);
             },
@@ -144,13 +208,18 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    // Widget Scaffold sebagai kerangka utama halaman Home
     return Scaffold(
       backgroundColor: const Color.fromARGB(255, 255, 255, 255),
+      // Widget SafeArea untuk memastikan konten berada dalam area aman layar (bebas notch/status bar)
       body: SafeArea(
+        // Widget Padding untuk memberikan margin di sekeliling konten halaman utama
         child: Padding(
           padding: const EdgeInsets.all(20),
+          // Widget Column untuk menyusun header profil, info total, list produk secara vertikal
           child: Column(
             children: [
+              // Widget Container sebagai kotak pembungkus profil pengguna dengan bayangan
               Container(
                 height: 100,
                 padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
@@ -158,6 +227,7 @@ class _HomePageState extends State<HomePage> {
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
                   boxShadow: [
+                    // Widget BoxShadow untuk memberikan efek bayangan pada kotak profil
                     BoxShadow(
                       color: Colors.black.withValues(alpha: 0.05),
                       blurRadius: 10,
@@ -165,24 +235,31 @@ class _HomePageState extends State<HomePage> {
                     ),
                   ],
                 ),
+                // Widget Row untuk menyusun avatar, info nama, dan tombol logout secara horizontal
                 child: Row(
                   children: [
+                    // Widget CircleAvatar untuk menampilkan gambar profil lingkaran
                     const CircleAvatar(
                       radius: 28,
                       backgroundImage: NetworkImage("https://picsum.photos/200"),
                     ),
                     const SizedBox(width: 15),
+                    // Widget Expanded agar informasi teks menggunakan ruang tersisa di tengah
                     Expanded(
+                      // Widget Column untuk menyusun teks sambutan dan username secara vertikal
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
+                          // Widget Text untuk salam selamat datang
                           Text(
                             "Hai, Selamat Datang!",
                             style: TextStyle(fontSize: 14, color: Colors.grey[600]),
                           ),
                           const SizedBox(height: 5),
+                          // Widget Row untuk menyusun nama pengguna dan ikon verifikasi secara horizontal
                           Row(
                             children: [
+                              // Widget Text untuk menampilkan username
                               Text(
                                 username,
                                 style: const TextStyle(
@@ -191,32 +268,38 @@ class _HomePageState extends State<HomePage> {
                                 ),
                               ),
                               const SizedBox(width: 6),
+                              // Widget Icon sebagai lencana verifikasi akun
                               const Icon(
-                                Icons.verified,
-                                color: Colors.green,
-                                size: 20,
-                              ),
+                                  Icons.verified,
+                                  color: Colors.green,
+                                  size: 20,
+                                ),
                             ],
                           ),
                         ],
                       ),
                     ),
+                    // Widget GestureDetector untuk mendeteksi tap pada tombol logout
                     GestureDetector(
                       onTap: logout,
+                      // Widget Stack untuk menumpuk elemen tombol logout jika diperlukan
                       child: Stack(
                         children: [
+                          // Widget Container sebagai latar belakang tombol logout
                           Container(
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: Colors.white,
                               borderRadius: BorderRadius.circular(15),
                               boxShadow: [
+                                // Widget BoxShadow untuk bayangan tombol logout
                                 BoxShadow(
                                   color: Colors.black.withValues(alpha: 0.08),
                                   blurRadius: 8,
                                 ),
                               ],
                             ),
+                            // Widget Icon keluar/logout berwarna merah
                             child: const Icon(
                               Icons.logout,
                               size: 28,
@@ -230,70 +313,33 @@ class _HomePageState extends State<HomePage> {
                 ),
               ),
               const SizedBox(height: 20),
-              Expanded(
-                child: products.isEmpty
-                    ? const Center(
-                        child: Text(
-                          "Belum ada produk",
-                          style: TextStyle(fontSize: 16, color: Colors.grey),
-                        ),
-                      )
-                    : ListView.builder(
-                        itemCount: products.length,
-                        itemBuilder: (context, index) {
-                          final product = products[index];
-                          return Card(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(15),
-                            ),
-                            child: ListTile(
-                              contentPadding: const EdgeInsets.all(15),
-                              title: Text(
-                                product.name,
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              subtitle: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  const SizedBox(height: 5),
-                                  Text("Rp ${product.price}"),
-                                  const SizedBox(height: 5),
-                                  Text(product.description),
-                                ],
-                              ),
-                              leading: IconButton(
-                                icon: const Icon(
-                                  Icons.edit,
-                                  color: Colors.orange,
-                                ),
-                                onPressed: () => showForm(
-                                  product: product,
-                                  index: index,
-                                ),
-                              ),
-                              trailing: IconButton(
-                                icon: const Icon(
-                                  Icons.delete,
-                                  color: Colors.red,
-                                ),
-                                onPressed: () => deleteProduct(index),
-                              ),
-                            ),
-                          );
-                        },
-                      ),
+
+              // Widget Row untuk menyusun teks total produk dan tombol Lihat Selengkapnya secara horizontal
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Widget Text untuk jumlah total produk terdaftar
+                  Text("Total Produk : ${totalProduk.toString()}"),
+                  // Widget TextButton sebagai tombol untuk navigasi ke halaman daftar produk lengkap
+                  TextButton(
+                    onPressed: () async {
+                      await Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (_) => const ProductPage()
+                        )
+                      );
+                      loadProducts();
+                    },
+                    // Widget Text sebagai label tombol
+                    child: const Text("Lihat Selengkapnya"),
+                  ),
+                ],
               ),
+
             ],
           ),
         ),
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => showForm(),
-        backgroundColor: Colors.blue,
-        child: const Icon(Icons.add, color: Colors.white),
       ),
     );
   }
