@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../models/product_model.dart';
 
 // Widget StatelessWidget Reusable untuk kartu tampilan produk
@@ -43,10 +44,19 @@ class ProductCard extends StatelessWidget {
             fontWeight: FontWeight.bold,
           ),
         ),
-        // Widget Column untuk menyusun harga dan deskripsi secara vertikal
+        // Widget Column untuk menyusun gambar, harga, dan deskripsi secara vertikal
         subtitle: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            const SizedBox(height: 5),
+            product.image.isNotEmpty
+                ? Image.memory(
+                    base64Decode(product.image),
+                    width: 120,
+                    height: 120,
+                    fit: BoxFit.cover,
+                  )
+                : const Icon(Icons.image, size: 120),
             const SizedBox(height: 5),
             // Widget Text untuk harga produk
             Text("Rp ${product.price}"),
@@ -55,42 +65,40 @@ class ProductCard extends StatelessWidget {
             Text(product.description),
           ],
         ),
-        // Menampilkan nomor urut dan tombol Edit di sisi depan jika parameter onEdit disediakan
-        leading: onEdit != null
-            ? Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  if (number != null)
-                    // Widget Text untuk menampilkan nomor urut produk
-                    Text(
-                      "$number.",
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.grey[700],
-                      ),
-                    ),
-                  if (number != null) const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(
-                      Icons.edit,
-                      color: Colors.orange,
-                    ),
-                    onPressed: onEdit,
-                  ),
-                ],
+        // Menampilkan nomor urut di sisi depan jika disediakan
+        leading: number != null
+            ? Text(
+                "$number.",
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.grey[700],
+                ),
               )
             : null,
-        // Menampilkan tombol Hapus di sisi belakang jika parameter onDelete disediakan
-        trailing: onDelete != null
-            ? IconButton(
+        // Menampilkan tombol Edit dan Hapus di sisi belakang
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (onEdit != null)
+              IconButton(
+                icon: const Icon(
+                  Icons.edit,
+                  color: Colors.green,
+                ),
+                onPressed: () => onEdit!(),
+              ),
+            const SizedBox(width: 10),
+            if (onDelete != null)
+              IconButton(
                 icon: const Icon(
                   Icons.delete,
                   color: Colors.red,
                 ),
-                onPressed: onDelete,
-              )
-            : null,
+                onPressed: () => onDelete!(),
+              ),
+          ],
+        ),
       ),
     );
   }

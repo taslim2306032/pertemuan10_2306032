@@ -3,6 +3,9 @@ import "package:shared_preferences/shared_preferences.dart";
 import "package:pertemuan10_2306032/models/product_model.dart";
 import "package:pertemuan10_2306032/widgets/product_card.dart";
 import "package:pertemuan10_2306032/pages/product_detail_page.dart";
+import "package:image_picker/image_picker.dart";
+import "dart:convert";
+import "dart:typed_data";
 
 class ProductPage extends StatefulWidget {
   const ProductPage({super.key});
@@ -34,7 +37,9 @@ class _ProductPageState extends State<ProductPage> {
     final prefs = await SharedPreferences.getInstance();
     List<String> productList = prefs.getStringList('products') ?? [];
     setState(() {
-      allProducts = productList.map((item) => ProductModel.fromJson(item)).toList();
+      allProducts = productList
+          .map((item) => ProductModel.fromJson(item))
+          .toList();
       _filterProducts();
     });
   }
@@ -50,9 +55,11 @@ class _ProductPageState extends State<ProductPage> {
         filteredProducts = allProducts.reversed.toList();
       } else {
         filteredProducts = allProducts.reversed
-            .where((product) =>
-                product.name.toLowerCase().contains(query) ||
-                product.description.toLowerCase().contains(query))
+            .where(
+              (product) =>
+                  product.name.toLowerCase().contains(query) ||
+                  product.description.toLowerCase().contains(query),
+            )
             .toList();
       }
     });
@@ -60,7 +67,9 @@ class _ProductPageState extends State<ProductPage> {
 
   Future<void> saveProducts() async {
     final prefs = await SharedPreferences.getInstance();
-    List<String> productList = allProducts.map((item) => item.toJson()).toList();
+    List<String> productList = allProducts
+        .map((item) => item.toJson())
+        .toList();
     await prefs.setStringList('products', productList);
   }
 
@@ -76,7 +85,10 @@ class _ProductPageState extends State<ProductPage> {
     );
   }
 
-  Future<void> updateProduct(ProductModel oldProduct, ProductModel newProduct) async {
+  Future<void> updateProduct(
+    ProductModel oldProduct,
+    ProductModel newProduct,
+  ) async {
     int index = allProducts.indexOf(oldProduct);
     if (index != -1) {
       setState(() {
@@ -92,28 +104,42 @@ class _ProductPageState extends State<ProductPage> {
   }
 
   Future<void> deleteProduct(ProductModel product) async {
-    bool confirm = await showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: const Text("Hapus Produk"),
-        content: Text("Apakah Anda yakin ingin menghapus produk '${product.name}'?"),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: const Text("Batal", style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            style: ElevatedButton.styleFrom(
-              backgroundColor: Colors.red,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    bool confirm =
+        await showDialog(
+          context: context,
+          builder: (context) => AlertDialog(
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(15),
             ),
-            onPressed: () => Navigator.pop(context, true),
-            child: const Text("Hapus", style: TextStyle(color: Colors.white)),
+            title: const Text("Hapus Produk"),
+            content: Text(
+              "Apakah Anda yakin ingin menghapus produk '${product.name}'?",
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: const Text(
+                  "Batal",
+                  style: TextStyle(color: Colors.grey),
+                ),
+              ),
+              ElevatedButton(
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.red,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                onPressed: () => Navigator.pop(context, true),
+                child: const Text(
+                  "Hapus",
+                  style: TextStyle(color: Colors.white),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
-    ) ?? false;
+        ) ??
+        false;
 
     if (confirm) {
       int index = allProducts.indexOf(product);
@@ -131,6 +157,11 @@ class _ProductPageState extends State<ProductPage> {
     }
   }
 
+  Future<String> convertImageToBase64(XFile image) async {
+  Uint8List bytes = await image.readAsBytes();
+  return base64Encode(bytes);
+}
+
   void showForm({ProductModel? product}) {
     TextEditingController nameController = TextEditingController(
       text: product?.name ?? "",
@@ -141,73 +172,139 @@ class _ProductPageState extends State<ProductPage> {
     TextEditingController priceController = TextEditingController(
       text: product?.price.toString() ?? "",
     );
-
-    showDialog(
-      context: context,
-      builder: (_) => AlertDialog(
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-        title: Text(product == null ? "Tambah Produk" : "Edit Produk"),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: nameController,
-                decoration: const InputDecoration(
-                  labelText: "Nama",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: descriptionController,
-                decoration: const InputDecoration(
-                  labelText: "Deskripsi",
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 10),
-              TextField(
-                controller: priceController,
-                decoration: const InputDecoration(
-                  labelText: "Harga",
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: const Text("Batal", style: TextStyle(color: Colors.grey)),
-          ),
-          ElevatedButton(
-            onPressed: () {
-              if (nameController.text.trim().isEmpty) {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text("Nama produk tidak boleh kosong")),
-                );
-                return;
-              }
-              final newProduct = ProductModel(
-                name: nameController.text,
-                description: descriptionController.text,
-                price: int.tryParse(priceController.text) ?? 0,
-              );
-              if (product == null) {
-                addProduct(newProduct);
-              } else {
-                updateProduct(product, newProduct);
-              }
-              Navigator.pop(context);
-            },
-            child: const Text("Simpan"),
-          ),
-        ],
-      ),
+    TextEditingController imgController = TextEditingController(
+      text: product?.image ?? "",
     );
+
+    XFile? selectedImage;
+final ImagePicker picker = ImagePicker();
+
+// method untuk memilih gambar dari galeri
+  Future<void> pickImage(StateSetter setDialogState) async {
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+
+    if (image != null) {
+      setDialogState(() {
+        selectedImage = image;
+        imgController.text = image.path;
+      });
+    }
+}
+
+  Widget buildPreviewImage() {
+    if (selectedImage != null) {
+      return FutureBuilder<Uint8List>(
+        future: selectedImage!.readAsBytes(),
+        builder: (context, snapshot) {
+          if (!snapshot.hasData) {
+            return const CircularProgressIndicator();
+          }
+          return Image.memory(
+            snapshot.data!,
+            width: 150,
+            height: 150,
+            fit: BoxFit.cover,
+          );
+        },
+      );
+    }
+    if (product?.image.isNotEmpty ?? false) {
+      return Image.memory(
+        base64Decode(product!.image),
+        width: 150,
+        height: 150,
+        fit: BoxFit.cover,
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
+  showDialog(
+    context: context,
+    builder: (_) => StatefulBuilder(
+      builder: (context, setState) {
+        return AlertDialog(
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+          title: Text(product == null ? "Tambah Produk" : "Edit Produk"),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                TextField(
+                  controller: nameController,
+                  decoration: const InputDecoration(
+                    labelText: "Nama",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: descriptionController,
+                  decoration: const InputDecoration(
+                    labelText: "Deskripsi",
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                TextField(
+                  controller: priceController,
+                  decoration: const InputDecoration(
+                    labelText: "Harga",
+                    border: OutlineInputBorder(),
+                  ),
+                  keyboardType: TextInputType.number,
+                ),
+                const SizedBox(height: 20),
+                ElevatedButton.icon(
+                  onPressed: () => pickImage(setState),
+                  icon: const Icon(Icons.image),
+                  label: const Text("Pilih Gambar"),
+                ),
+                const SizedBox(height: 10),
+                buildPreviewImage(),
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text("Batal", style: TextStyle(color: Colors.grey)),
+            ),
+            ElevatedButton(
+              onPressed: () async {
+                if (nameController.text.trim().isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(
+                      content: Text("Nama produk tidak boleh kosong"),
+                    ),
+                  );
+                  return;
+                }
+                String imageBase64 = product?.image ?? "";
+                if (selectedImage != null) {
+                  imageBase64 = await convertImageToBase64(selectedImage!);
+                }
+                final newProduct = ProductModel(
+                  name: nameController.text,
+                  description: descriptionController.text,
+                  price: int.tryParse(priceController.text) ?? 0,
+                  image: imageBase64,
+                );
+                if (product == null) {
+                  addProduct(newProduct);
+                } else {
+                  updateProduct(product, newProduct);
+                }
+                if (!context.mounted) return;
+                Navigator.pop(context);
+              },
+              child: const Text("Simpan"),
+            ),
+          ],
+        );
+      },
+    ),
+  );
   }
 
   @override
@@ -270,12 +367,15 @@ class _ProductPageState extends State<ProductPage> {
                         )
                       : null,
                   border: InputBorder.none,
-                  contentPadding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  contentPadding: const EdgeInsets.symmetric(
+                    vertical: 12,
+                    horizontal: 16,
+                  ),
                 ),
               ),
             ),
           ),
-          
+
           // Widget Expanded untuk membungkus list produk agar memenuhi sisa tinggi layar
           Expanded(
             child: filteredProducts.isEmpty
@@ -324,9 +424,7 @@ class _ProductPageState extends State<ProductPage> {
                             builder: (_) => ProductDetailPage(product: product),
                           ),
                         ),
-                        onEdit: () => showForm(
-                          product: product,
-                        ),
+                        onEdit: () => showForm(product: product),
                         onDelete: () => deleteProduct(product),
                       );
                     },

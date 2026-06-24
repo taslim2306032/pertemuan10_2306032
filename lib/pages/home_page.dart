@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:pertemuan10_2306032/pages/product_page.dart';
+import 'package:pertemuan10_2306032/pages/product_detail_page.dart';
+import 'package:pertemuan10_2306032/widgets/product_card.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/product_model.dart';
 import 'login_page.dart';
@@ -35,7 +37,7 @@ class _HomePageState extends State<HomePage> {
       totalProduk = allProducts.length;
       products = allProducts
           .reversed
-          .take(3)
+          .take(5)
           .toList();
     });
   }
@@ -174,6 +176,7 @@ class _HomePageState extends State<HomePage> {
                 name: nameController.text,
                 description: descriptionController.text,
                 price: int.tryParse(priceController.text) ?? 0,
+                image: product?.image ?? "",
               );
               if (product == null) {
                 addProduct(newProduct);
@@ -198,7 +201,8 @@ class _HomePageState extends State<HomePage> {
 
   Future<void> logout() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.clear();
+    await prefs.remove('isLogin');
+    await prefs.remove('username');
     if (!mounted) return;
     Navigator.pushReplacement(
       context,
@@ -335,6 +339,39 @@ class _HomePageState extends State<HomePage> {
                     child: const Text("Lihat Selengkapnya"),
                   ),
                 ],
+              ),
+              const SizedBox(height: 10),
+              // Menampilkan daftar 5 produk terakhir yang baru ditambahkan
+              Expanded(
+                child: products.isEmpty
+                    ? Center(
+                        child: Text(
+                          "Belum ada produk yang ditambahkan",
+                          style: TextStyle(
+                            fontSize: 16,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                      )
+                    : ListView.builder(
+                        itemCount: products.length,
+                        itemBuilder: (context, index) {
+                          final product = products[index];
+                          return ProductCard(
+                            product: product,
+                            number: index + 1,
+                            onTap: () async {
+                              await Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ProductDetailPage(product: product),
+                                ),
+                              );
+                              loadProducts();
+                            },
+                          );
+                        },
+                      ),
               ),
 
             ],

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 import '../models/product_model.dart';
 
 // Widget StatelessWidget untuk menampilkan halaman detail produk
@@ -35,6 +36,15 @@ class ProductDetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            product.image.isNotEmpty
+                ? Image.memory(
+                    base64Decode(product.image),
+                    width: double.infinity,
+                    height: 250,
+                    fit: BoxFit.cover,
+                  )
+                : const Icon(Icons.image, size: 250),
+            const SizedBox(height: 20),
             // Widget Text untuk menampilkan nama produk dengan ukuran besar dan tebal
             Text(
               product.name,
